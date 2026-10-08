@@ -92,7 +92,7 @@ docker compose exec web odoo -d furnishing_mes -u furnishing_mes --stop-after-in
 docker compose restart web
 
 # run tests
-docker compose exec web odoo -d furnishing_mes -u furnishing_mes \
+docker compose run --rm web odoo -d furnishing_mes -u furnishing_mes \
   --test-enable --log-level=test --stop-after-init
 
 # inspect

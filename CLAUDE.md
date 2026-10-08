@@ -182,7 +182,7 @@ sessions — treat it as a deliverable, not a scratchpad.
 
 ```bash
 docker compose up -d
-docker compose exec web odoo -d furnishing_mes -u furnishing_mes \
+docker compose run --rm web odoo -d furnishing_mes -u furnishing_mes \
   --test-enable --log-level=test --stop-after-init
 git status
 git diff --cached

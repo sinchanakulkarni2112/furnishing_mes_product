@@ -239,7 +239,7 @@ Follow the [Odoo development guidelines](https://www.odoo.com/documentation/18.0
 
 ```bash
 make test                                   # whole module
-docker compose exec web odoo -d furnishing_mes \
+docker compose run --rm web odoo -d furnishing_mes \
   -u furnishing_mes --test-enable \
   --test-tags /furnishing_mes:TestPlanningEngine --stop-after-init
 ```

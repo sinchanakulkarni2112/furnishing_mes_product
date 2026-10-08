@@ -39,7 +39,7 @@ Odoo's own test framework, run inside the container.
 
 ```bash
 make test                                              # everything
-docker compose exec web odoo -d furnishing_mes -u furnishing_mes \
+docker compose run --rm web odoo -d furnishing_mes -u furnishing_mes \
   --test-enable --test-tags /furnishing_mes:TestPlanningEngine \
   --log-level=test --stop-after-init
 ```
