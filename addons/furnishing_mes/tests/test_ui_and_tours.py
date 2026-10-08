@@ -2,6 +2,7 @@
 """UI, portal, systray and tour registration checks."""
 
 import os
+import re
 
 from lxml import etree
 
@@ -46,6 +47,64 @@ class TestUiAndTours(HttpCase):
             ])
         ])
         self.assertEqual(len(client_actions), 3)
+
+    def _tour_source(self):
+        base = os.path.join(os.path.dirname(__file__), '..', 'static', 'src')
+        path = os.path.join(base, 'js', 'tours', 'fmes_tours.js')
+        with open(path, encoding='utf-8') as f:
+            return f.read(), base
+
+    def test_every_tour_trigger_resolves_to_a_real_template_class(self):
+        """A trigger naming a class no template renders dies at its first step.
+
+        The tours were written before their screens' markup, and every one of
+        their ten selectors pointed at a class that existed only in the tour
+        file. This pins the tour file to the templates so that cannot happen
+        again unnoticed."""
+        tour_source, base = self._tour_source()
+
+        template_source = ''
+        xml_dir = os.path.join(base, 'xml')
+        for name in sorted(os.listdir(xml_dir)):
+            if name.endswith('.xml'):
+                with open(os.path.join(xml_dir, name), encoding='utf-8') as f:
+                    template_source += f.read()
+
+        triggers = re.findall(r'trigger:\s*[`"\']([^`"\']+)', tour_source)
+        self.assertTrue(triggers, "the tours declare no triggers at all")
+
+        unresolved = set()
+        for trigger in triggers:
+            for class_name in re.findall(r'\.([A-Za-z][\w-]*)', trigger):
+                word = r'(?<![\w-])%s(?![\w-])' % re.escape(class_name)
+                if not re.search(word, template_source):
+                    unresolved.add(class_name)
+        self.assertFalse(
+            unresolved,
+            "tour triggers name classes no template renders: %s"
+            % ', '.join(sorted(unresolved)),
+        )
+
+    def test_every_tour_run_command_is_a_real_helper_command(self):
+        """`run` strings are dispatched to tour_helpers.js by name.
+
+        An unknown command (the scaffold shipped `run: "next"`, which does not
+        exist) is not a no-op — it is a step that throws when it runs."""
+        tour_source, _ = self._tour_source()
+        known = {
+            'check', 'clear', 'click', 'dblclick', 'drag_and_drop', 'edit',
+            'editor', 'fill', 'hover', 'press', 'range', 'select',
+            'selectByIndex', 'selectByLabel', 'uncheck', 'goToUrl',
+        }
+        unknown = set()
+        for command in re.findall(r'run:\s*[`"\']([^`"\']+)', tour_source):
+            verb = command.split()[0] if command.split() else ''
+            if verb not in known:
+                unknown.add(command)
+        self.assertFalse(
+            unknown,
+            "unknown tour run command(s): %s" % ', '.join(sorted(unknown)),
+        )
 
     def test_alert_systray_unread_count_tracks_acknowledgement(self):
         alert_model = self.env['fmes.alert']

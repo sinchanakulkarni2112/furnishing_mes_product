@@ -2136,7 +2136,7 @@ delete rights (reviewed and accepted as-is).
 | 3.2 | Root README is a title only | **Done** — `47999db` | |
 | 3.3 | No CI running tests | **Done** — `9d4347a` | `.github/workflows/tests.yml`, one job, installs fresh + runs the exact `--test-enable --test-tags /furnishing_mes` invocation `make test` uses. |
 | 3.4 | Postgres image not pinned by digest | **Done** — `9d4347a` | Pinned to the digest of the image already running/tested this session, not a freshly pulled one (deliberate — see gotcha above). |
-| 3.5 | Browser click-through + OWL tours unwritten | **In progress — next up** | Screens needing a manual pass: Shop Floor Terminal, Scheduling Board, Executive Dashboard, the alert bell/systray, and the portal pages. "OWL tours for those three main screens" — the mentor's own note does not name which three; Terminal + Scheduling Board + Executive Dashboard is the reasonable reading (the three richest custom OWL components), and **the user has since approved exactly that set** — build the tours for those three, plus the systray and portal checks. Still true and worth remembering: **no browser exists in this environment**, so a tour is verifiable by XML/JS well-formedness and a live asset-load, but pixel-level visual confirmation remains the one thing not independently done (`docs/17` L4). |
+| 3.5 | Browser click-through + OWL tours unwritten | **Tours done this round; the pixel pass still owed** | The three tours were rewritten against the real markup and are now pinned to it by two new tests (see "Item 3.5 — the three OWL tours rewritten against the real markup" below). What is still missing is the visual pass, which needs a browser this environment does not have — and the database it walks through was configured for it (see "Manual E2E test environment prepared" below). Screens needing a manual pass: Shop Floor Terminal, Scheduling Board, Executive Dashboard, the alert bell/systray, and the portal pages. "OWL tours for those three main screens" — the mentor's own note does not name which three; Terminal + Scheduling Board + Executive Dashboard is the reasonable reading (the three richest custom OWL components), and **the user has since approved exactly that set** — build the tours for those three, plus the systray and portal checks. Still true and worth remembering: **no browser exists in this environment**, so a tour is verifiable by XML/JS well-formedness and a live asset-load, but pixel-level visual confirmation remains the one thing not independently done (`docs/17` L4). |
 | 3.6 | PDF report class inside report_service.py | **Done** — `0a38ee4` | Moved `ReportFmesGeneric` to `reports/report_fmes_generic.py`. |
 | 3.7 | View files not one-per-model | **Done** — `7028d28` | Split into 7 new files, all `<record>` blocks moved verbatim with **no `id=` renamed** (verified: 153 view/action records in, 153 out, zero lost, zero added). Beyond the 3 files the mentor named, 4 more were needed to make the rule true rather than partial: `fmes.production.plan.line` and `fmes.plan.generator` were also sharing `fmes_production_plan_views.xml`, `fmes.import.batch` + `fmes.production.import` were in `fmes_production_entry_views.xml`, `fmes.alert.rule` was in `fmes_alert_views.xml`, `mrp.workcenter.productivity.loss` was in `maintenance_equipment_views.xml`, and the Phase 5 `fmes_entry_view_form_downtime` **inherited** view of `fmes.production.entry` was alone in `fmes_production_entry_downtime_views.xml` (that last file is deleted — see the `ir.model.data` gotcha below). |
 | 3.8 | Alert data files missing `fmes_` prefix | **Done** — `022ad43` | `data/alert_rules.xml` → `data/fmes_alert_rules.xml`, `data/alert_automations.xml` → `data/fmes_alert_automations.xml`. `MEMORY.md`'s own historical entries describing the old filenames were deliberately left alone (a decision log is not rewritten retroactively) — do not "fix" those old mentions if you see them. |
@@ -2536,6 +2536,119 @@ commit rather than stacked on it.
   — CSS contains `nth-child(5n + 1)`, `translateY(-4px)` and `#4f46e5` with no
   `CSS error message`, JS contains `isFmesApp`, both
   `registerTemplateExtension` markers and no `MoreDropdown`.
+
+### Manual E2E test environment prepared — customer order through to invoice (this round)
+
+**Why:** item 3.5's click-through has to start from a database where every
+screen it opens has real content, so the live dev database was configured for
+one deliberate scenario — a customer orders five desks, the plant reacts, an
+operator records on Drill 1, reports and an invoice follow — instead of
+whatever the seed happens to leave lying around. Applied and verified through
+`odoo shell` so the manual clicks cannot fail for want of configuration.
+Script lives at `/tmp/opencode/setup_e2e.py`, deliberately **outside the
+repo**: it is a one-off fixture for this database, not a project script
+(`scripts/` is documented as backup/restore/seeding), and it mutates live
+master data.
+
+**Two shell facts that shaped it (both cost a full aborted run):**
+`docker compose exec web odoo shell` runs as `__system__` and **rolls the
+transaction back when the console exits**, so the script commits at explicit
+checkpoints — anything that raises before the first commit changes nothing,
+which is what made iterating on it safe. And a one-off `odoo` command cannot
+be `exec`ed next to the running server (port 8069, D11.4); `odoo shell` is
+fine because it binds nothing, but the *test* runs must go through
+`docker compose run --rm`.
+
+**Configured, and what was verified while configuring it:**
+
+| # | Change | Evidence |
+|---|---|---|
+| 1 | MTO route unarchived (id 1) | `active=True`; product carries MTO + Manufacture |
+| 2 | Product `E2E Test Desk` / `E2E-DESK`, storable, invoice policy *Ordered*, 15 000 + 15 % tax | template 2473, variant 2484 |
+| 3 | Workcenter **Drill 1** → department *Research & Development* (EMP002's own), `fmes_machine_code='DRILL-1'` | its 5 553 seeded entries moved `department_id` NULL → R&D (the field is `related='workcenter_id.department_id', store=True`); 11 106 NULLs remain, exactly the two workcenters still without a department |
+| 4 | BOM with operation *Drill holes* @ Drill 1, 15 min | operation reads back; **operation-only, no components** so the MO is never blocked on stock |
+| 5 | Capacity row Drill 1 × E2E Test Desk (8 per 7.5 h shift → 1.07/h) | `fmes.capacity.matrix._resolve()` returns it |
+| 6 | New `fmes.alert.rule` (critical, Discuss + activity, no email, 60 min cooldown, 30 min escalation) + a new `base.automation` on `sale.order` | rule 298, automation 6 |
+| 7 | Draft **S00114** for CUST001 × 5, `require_signature=True`, `require_payment=False`, expires today+14 | `_has_to_be_signed()=True`, `_has_to_be_paid()=False` |
+
+**Decisions worth remembering:**
+
+- **The sale-order trigger lives in the `base.automation`, not in the rule.**
+  `fmes.alert.rule` has no model field, so a second `new_order_received` rule
+  necessarily also fires for manufacturing orders confirming (the seeded
+  `mrp` automation emits the same type). Two alerts appear per confirm — one
+  for the SO, one for its MO — and the rule was **added** rather than editing
+  seeded rule 9, so the shipped defaults stay as designed. Accepted and
+  reported to the user rather than widening the rule model.
+- **Severity `critical`** is what makes dispatch immediate (a queued/info
+  alert waits for the 15-minute cron); `notify_email=False` keeps it on
+  Discuss + activity only.
+- **Drill 1 → Research & Development** is a judgment call with a visible
+  side effect: because the entry's department is a stored related field,
+  assigning the workcenter *rewrote history* for 5 553 seeded entries, which
+  previously attributed to no department at all. Department-wise reporting
+  now credits them to R&D. R&D was chosen because it is the department of
+  EMP002, the operator this test records as.
+
+**Verified, not assumed:** a throwaway SO was confirmed end to end first — it
+produced an MO whose *Drill holes* work order sits on Drill 1, planning
+returned `{Drill 1: rate 1.07, changeover 10, manpower 1.0, priority 1}`, the
+automation fired, four alerts were raised (the two critical ones
+`notified=True`), and everything was then deleted and audited back to **zero
+leftover alerts, MOs and SOs** before the real order was created. 24/24
+preflight checks passed. Competition for the slot was measured too: of 153
+open demands none can use Drill 1, and the 5-unit MO needs 4.67 h of Shift
+A's 7.5 h, so the plan line lands on today's Shift A exactly as the guide
+predicts.
+
+The **6-step click guide** (credentials, portal link, every menu path, what to
+expect on each screen) was delivered in chat, not committed. Two limitations
+it works around, both worth fixing later: the terminal's `create_entry`
+endpoint never attaches a plan line, so a purely terminal-made entry reports
+Target 0 — the guide creates that one entry through the backend form instead;
+and the guide's step 2 deliberately shows two alerts (see above).
+
+### Item 3.5 — the three OWL tours rewritten against the real markup (this round)
+
+**What was wrong, established by reading rather than assumed:** every one of
+the tours' ten `trigger` selectors named a class (`o_fmes_terminal`,
+`o_fmes_board`, `o_fmes_kpi_row`, …) that appeared **nowhere except in the
+tour file itself** — the templates use `fmes-t-*` and `fmes-*`. They were
+scaffolds: each would have failed at its first step. The `run: "next"` they
+shipped is not a tour command either (`tour_helpers.js` dispatches `check`,
+`clear`, `click`, `dblclick`, `drag_and_drop`, `edit`, `editor`, `fill`,
+`hover`, `press`, `range`, `select`, `selectByIndex`, `selectByLabel`,
+`uncheck`, `goToUrl` — there is no `next`).
+
+**As delivered** (`static/src/js/tours/fmes_tours.js`): the three approved
+tours — terminal, scheduling board, executive dashboard — each navigate the
+way a user does: `stepUtils.goToAppSteps` into the app, then tile by tile
+through the tile dashboard, then the leaf tile that opens the screen. Nothing
+hard-codes a database id: tiles are addressed by the
+`data-menu-xmlid` that `menu_dashboard.xml` already puts on every tile, so
+the tours survive a re-seed. The terminal tour walks the full Round 2 feature
+— keypad gate, the seeded PIN 4417, operator switch, machine picker, work
+screen — and the board tour ends by switching the preset to *Weekly*; the
+dashboard tour closes on the systray bell. Nothing is produced, submitted or
+approved, so all three replay cleanly.
+
+**Two tests now enforce what was previously only convention:**
+`test_every_tour_trigger_resolves_to_a_real_template_class` parses the tour
+file's triggers and fails if any class is missing from
+`static/src/xml/*.xml`, and `test_every_tour_run_command_is_a_real_helper_command`
+rejects an unknown `run` verb. Between them they would have caught both
+defects above at `make test` time instead of at first click.
+
+**Verified:** `TestUiAndTours` 9/9 (7 existing + 2 new); full module suite on
+a fresh disposable database `fmes_tours_check` — **0 failed, 0 errors of 482
+tests**, database dropped afterwards; the served `web.assets_backend` bundle
+on port 8169 (9.4 MB) actually contains the tour registrations, the
+`goToAppSteps` import and the tile selector, so a browser would load the new
+code. The dev database's own run still reports the same **19 pre-existing
+data-pollution failures** (dashboard tiles, report access, PIN gate) recorded
+two sections above — unchanged by this work, and the clean fresh-DB run is
+the gate. **Still owed:** the pixel-level pass itself — no browser exists in
+this environment (docs/17 L4).
 
 ---
 
