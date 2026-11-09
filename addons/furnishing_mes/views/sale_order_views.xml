@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="fmes_view_quotation_tree_inherit" model="ir.ui.view">
+            <field name="name">fmes.sale.quotation.tree.inherit</field>
+            <field name="model">sale.order</field>
+            <field name="inherit_id" ref="sale.view_quotation_tree_with_onboarding"/>
+            <field name="arch" type="xml">
+                <xpath expr="//list" position="attributes">
+                    <attribute name="decoration-info">state == 'sent'</attribute>
+                    <attribute name="decoration-muted">state == 'cancel'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='name']" position="after">
+                    <field name="partner_id"/>
+                </xpath>
+                <xpath expr="//field[@name='amount_total']" position="attributes">
+                    <attribute name="sum">Total</attribute>
+                </xpath>
+            </field>
+        </record>
+
+        <record id="fmes_view_order_tree_inherit" model="ir.ui.view">
+            <field name="name">fmes.sale.order.tree.inherit</field>
+            <field name="model">sale.order</field>
+            <field name="inherit_id" ref="sale.view_order_tree"/>
+            <field name="arch" type="xml">
+                <xpath expr="//list" position="attributes">
+                    <attribute name="decoration-success">state == 'sale'</attribute>
+                    <attribute name="decoration-muted">state == 'cancel'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='amount_total']" position="attributes">
+                    <attribute name="sum">Total</attribute>
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>

@@ -19,7 +19,7 @@
                     <field name="request_count"/>
                     <field name="preventive_count" optional="show"/>
                     <field name="corrective_count" optional="show"/>
-                    <field name="pm_compliance_pct" widget="percentage"
+                    <field name="pm_compliance_pct" widget="fmes_pct"
                            invisible="not has_pm_due"/>
                     <field name="has_pm_due" column_invisible="True"/>
                     <field name="overdue_count" optional="show"/>

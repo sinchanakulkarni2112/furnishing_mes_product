@@ -72,6 +72,9 @@
                     </div>
                     <button class="fmes-t-pin-reverify"
                             t-on-click="askPin">Switch Operator (PIN)</button>
+                    <button class="fmes-t-exit" t-on-click="askExit">
+                        Exit Terminal
+                    </button>
                 </div>
 
                 <div t-if="state.loading" class="fmes-t-loading">Loading…</div>
@@ -126,6 +129,9 @@
                     </div>
                     <button class="fmes-t-pin-reverify"
                             t-on-click="askPin">Switch Operator (PIN)</button>
+                    <button class="fmes-t-exit" t-on-click="askExit">
+                        Exit Terminal
+                    </button>
                     <div class="fmes-t-shifts">
                         <button t-foreach="state.shifts" t-as="shift"
                                 t-key="shift.id"
@@ -506,6 +512,41 @@
                     <div class="fmes-t-keypad-actions">
                         <button class="fmes-t-key-ok" style="grid-column: span 3"
                                 t-on-click="closeMaterialModal">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= exit terminal ================= -->
+            <div t-if="state.exitConfirm" class="fmes-t-keypad-backdrop"
+                 t-on-click="cancelExit">
+                <div class="fmes-t-product-modal" t-on-click.stop="() => {}">
+                    <div class="fmes-t-keypad-head">
+                        <div class="fmes-t-keypad-label">Exit the terminal?</div>
+                        <div class="fmes-t-keypad-product">
+                            <t t-if="state.exitConfirm.draftCount">
+                                <t t-esc="state.exitConfirm.draftCount"/> entr<t
+                                    t-esc="state.exitConfirm.draftCount === 1 ? 'y is' : 'ies are'"/>
+                                not submitted yet. Everything you entered is
+                                saved - the next operator can continue from
+                                where you stopped.
+                            </t>
+                            <t t-else="">
+                                Everything you entered is saved. You will be
+                                taken back to the main screen.
+                            </t>
+                        </div>
+                    </div>
+                    <div class="fmes-t-keypad-actions">
+                        <button class="fmes-t-key-ok" style="grid-column: span 2"
+                                t-att-disabled="state.exitConfirm.exiting"
+                                t-on-click="cancelExit">
+                            Stay on terminal
+                        </button>
+                        <button class="fmes-t-key-cancel"
+                                t-att-disabled="state.exitConfirm.exiting"
+                                t-on-click="confirmExit">
+                            Exit
+                        </button>
                     </div>
                 </div>
             </div>

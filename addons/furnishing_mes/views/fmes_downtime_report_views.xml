@@ -48,7 +48,7 @@
                     <field name="downtime_hours" sum="Total"/>
                     <field name="event_count" sum="Events"/>
                     <field name="avg_event_duration" optional="hide"/>
-                    <field name="pct_of_available" widget="percentage"/>
+                    <field name="pct_of_available" widget="fmes_pct"/>
                 </list>
             </field>
         </record>

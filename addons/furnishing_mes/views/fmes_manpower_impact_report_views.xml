@@ -18,12 +18,12 @@
                     <field name="std_manpower" optional="hide"/>
                     <field name="actual_manpower" optional="hide"/>
                     <field name="shortage" optional="show"/>
-                    <field name="shortage_pct" widget="percentage"/>
+                    <field name="shortage_pct" widget="fmes_pct"/>
                     <field name="absent_count" optional="hide"/>
                     <field name="planned_qty" optional="hide"/>
                     <field name="actual_qty" optional="hide"/>
                     <field name="has_planned_qty" column_invisible="True"/>
-                    <field name="achievement_pct" widget="percentage"
+                    <field name="achievement_pct" widget="fmes_pct"
                            invisible="not has_planned_qty"/>
                 </list>
             </field>

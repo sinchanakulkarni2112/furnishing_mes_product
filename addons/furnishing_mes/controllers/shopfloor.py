@@ -554,6 +554,19 @@ class FmesShopFloor(http.Controller):
             'employee_name': False,
         }
 
+    @http.route('/fmes/terminal/exit', type='json', auth='user')
+    def terminal_exit(self, **kwargs):
+        """Forget the switched operator when someone leaves the terminal.
+
+        Only the PIN-switch session keys are cleared; the Odoo login itself
+        is untouched, so the user lands on the main screen still signed in.
+        `fmes_pin_failures` is deliberately kept: exiting and re-entering
+        must not be a way to reset the five-attempt lockout.
+        """
+        request.session.pop('fmes_active_employee_id', None)
+        request.session.pop('fmes_active_user_id', None)
+        return {'ok': True}
+
     # ------------------------------------------------------------------
     # Downtime — reason picker, running timer (Requirement 6)
     # ------------------------------------------------------------------

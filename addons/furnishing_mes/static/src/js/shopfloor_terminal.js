@@ -15,6 +15,7 @@
  */
 
 import { Component, onWillStart, onWillUnmount, useState } from "@odoo/owl";
+import { browser } from "@web/core/browser/browser";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { rpc } from "@web/core/network/rpc";
@@ -69,6 +70,7 @@ export class FmesShopFloorTerminal extends Component {
             pinVerified: false,   // set once the server accepted a PIN
             pinProvisioned: true, // false when no operator has a PIN at all
             activeEmployeeId: null, // the employee the tablet is switched to
+            exitConfirm: null,    // { draftCount, exiting } - leave-the-terminal modal
         });
 
         onWillStart(async () => {
@@ -244,6 +246,47 @@ export class FmesShopFloorTerminal extends Component {
     async selectShift(shiftId) {
         this.state.shiftId = shiftId;
         await this.loadBoard();
+    }
+
+    // ------------------------------------------------------------------
+    // Exit terminal - a safe way back to the main Odoo screen.
+    //
+    // The terminal is a full-screen client action on a shared tablet, so
+    // without this an operator has no obvious way out short of editing the
+    // URL. Nothing is lost on exit: every figure is saved to the server as
+    // it is typed, and unsubmitted entries stay drafts for the next person.
+    // The confirmation exists so a stray tap from a gloved hand cannot dump
+    // the operator out of the middle of a shift.
+    // ------------------------------------------------------------------
+    askExit() {
+        this.state.exitConfirm = {
+            draftCount: this.pendingCount,
+            exiting: false,
+        };
+    }
+
+    cancelExit() {
+        if (this.state.exitConfirm && this.state.exitConfirm.exiting) {
+            return;
+        }
+        this.state.exitConfirm = null;
+    }
+
+    async confirmExit() {
+        const confirm = this.state.exitConfirm;
+        if (!confirm || confirm.exiting) {
+            return;
+        }
+        confirm.exiting = true;
+        try {
+            // Forget the switched operator so the next person at the tablet
+            // starts from the PIN gate. Best effort: a dropped network must
+            // never trap the operator inside the terminal.
+            await rpc("/fmes/terminal/exit", {});
+        } catch {
+            // ignore - leaving matters more than the tidy-up
+        }
+        browser.location.assign("/odoo");
     }
 
     backToMachines() {

@@ -22,7 +22,7 @@
                     <field name="ordered_qty" optional="hide"/>
                     <field name="produced_qty" optional="hide"/>
                     <field name="pending_qty"/>
-                    <field name="completion_pct" widget="percentage" optional="show"/>
+                    <field name="completion_pct" widget="fmes_pct" optional="show"/>
                     <field name="date_deadline" optional="show"/>
                     <field name="days_delayed"/>
                     <field name="status" widget="badge"

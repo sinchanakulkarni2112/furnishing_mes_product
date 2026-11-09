@@ -21,45 +21,56 @@
             <field name="model">fmes.plan.generator</field>
             <field name="arch" type="xml">
                 <form string="Generate Production Plan">
-                    <group>
-                        <group string="Period">
-                            <field name="plan_type"/>
-                            <field name="date_from"/>
-                            <field name="date_to"/>
-                            <field name="company_id"
-                                   groups="base.group_multi_company"/>
-                        </group>
-                        <group string="Scope">
-                            <field name="department_ids"
-                                   widget="many2many_tags"
-                                   placeholder="All departments"/>
-                            <field name="demand_source"/>
-                            <field name="include_carry_forward"/>
-                        </group>
-                    </group>
-
-                    <separator string="Before you generate"/>
-                    <group>
+                    <sheet>
+                        <div class="oe_title">
+                            <h1>Generate Production Plan</h1>
+                        </div>
                         <group>
-                            <field name="demand_count"/>
-                            <field name="carry_forward_count"/>
-                            <field name="unrated_count"/>
+                            <group string="Period">
+                                <field name="plan_type"/>
+                                <field name="date_from"/>
+                                <field name="date_to"/>
+                                <field name="company_id"
+                                       groups="base.group_multi_company"/>
+                            </group>
+                            <group string="Scope">
+                                <field name="department_ids"
+                                       widget="many2many_tags"
+                                       placeholder="All departments"/>
+                                <field name="demand_source"/>
+                                <field name="include_carry_forward"/>
+                            </group>
                         </group>
-                        <group>
-                            <field name="machine_shift_slots"/>
-                            <field name="required_hours" widget="float_time"/>
-                            <field name="available_hours" widget="float_time"/>
-                            <field name="utilization_pct" widget="percentage"/>
-                        </group>
-                    </group>
-                    <div class="alert alert-warning" role="alert"
-                         invisible="not preview_warning">
-                        <field name="preview_warning" nolabel="1" readonly="1"/>
-                    </div>
 
+                        <separator string="Capacity Preview"/>
+                        <group>
+                            <group>
+                                <field name="demand_count"/>
+                                <field name="carry_forward_count"/>
+                                <field name="unrated_count"/>
+                                <field name="machine_shift_slots"/>
+                            </group>
+                            <group>
+                                <field name="required_hours" widget="float_time"/>
+                                <field name="available_hours" widget="float_time"/>
+                                <field name="utilization_pct" widget="fmes_pct"/>
+                                <field name="peak_utilization_pct"
+                                       widget="fmes_pct"/>
+                                <field name="bottleneck_count"/>
+                            </group>
+                        </group>
+                        <separator string="Workcenter Load (estimate)"
+                                   invisible="not load_html"/>
+                        <field name="load_html" nolabel="1" readonly="1"
+                               invisible="not load_html"/>
+                        <div class="alert alert-warning" role="alert"
+                             invisible="not preview_warning">
+                            <field name="preview_warning" nolabel="1" readonly="1"/>
+                        </div>
+                    </sheet>
                     <footer>
                         <button name="action_generate" type="object"
-                                string="Generate Plan" class="btn-primary"/>
+                                string="Generate Production Plan" class="btn-primary"/>
                         <button string="Cancel" class="btn-secondary"
                                 special="cancel"/>
                     </footer>

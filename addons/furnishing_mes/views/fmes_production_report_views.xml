@@ -25,9 +25,9 @@
                     <field name="ok_qty" optional="show"/>
                     <field name="variance_qty" optional="hide"/>
                     <field name="has_planned_qty" column_invisible="True"/>
-                    <field name="achievement_pct" widget="percentage"
+                    <field name="achievement_pct" widget="fmes_pct"
                            invisible="not has_planned_qty"/>
-                    <field name="efficiency_pct" widget="percentage"
+                    <field name="efficiency_pct" widget="fmes_pct"
                            optional="show"/>
                     <field name="run_hours" widget="float_time"
                            optional="hide"/>

@@ -26,14 +26,14 @@
                            widget="float_time" optional="show"/>
                     <field name="idle_hours" widget="float_time"
                            optional="hide"/>
-                    <field name="utilization_pct" widget="percentage"/>
+                    <field name="utilization_pct" widget="fmes_pct"/>
                     <field name="availability" widget="percentage"
                            optional="hide"/>
                     <field name="performance" widget="percentage"
                            optional="hide"/>
                     <field name="quality" widget="percentage" optional="hide"/>
-                    <field name="oee_pct" widget="percentage"/>
-                    <field name="efficiency_pct" widget="percentage"
+                    <field name="oee_pct" widget="fmes_pct"/>
+                    <field name="efficiency_pct" widget="fmes_pct"
                            optional="show"/>
                     <field name="std_output_qty" optional="hide"/>
                     <field name="actual_qty" optional="hide"/>

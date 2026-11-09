@@ -10,7 +10,7 @@
             <field name="model">fmes.alert</field>
             <field name="arch" type="xml">
                 <list string="Alerts" create="0"
-                      decoration-danger="severity == 'critical' and state == 'new'"
+                      decoration-danger="severity == 'critical' and state in ('new','acknowledged')"
                       decoration-warning="severity == 'warning' and state == 'new'"
                       decoration-muted="state in ('resolved', 'dismissed')">
                     <field name="triggered_on"/>
@@ -27,13 +27,19 @@
                            decoration-danger="state == 'new'"
                            decoration-info="state == 'acknowledged'"
                            decoration-muted="state == 'dismissed'"/>
+                    <field name="escalated" optional="show"/>
                     <field name="acknowledged_by" optional="hide"/>
-                    <field name="escalated" optional="hide"/>
+                    <button name="action_open_record" type="object"
+                            string="Open" class="btn btn-sm btn-link"/>
                     <button name="action_acknowledge" type="object"
-                            string="Acknowledge" invisible="state != 'new'"/>
+                            string="Acknowledge" class="btn btn-sm btn-primary"
+                            invisible="state != 'new'"/>
                     <button name="action_resolve" type="object"
-                            string="Resolve"
+                            string="Resolve" class="btn btn-sm btn-success"
                             invisible="state not in ('new', 'acknowledged')"/>
+                    <button name="action_dismiss" type="object"
+                            string="Dismiss" class="btn btn-sm btn-link"
+                            invisible="state in ('resolved', 'dismissed')"/>
                 </list>
             </field>
         </record>
@@ -76,13 +82,13 @@
             <field name="name">fmes.alert.form</field>
             <field name="model">fmes.alert</field>
             <field name="arch" type="xml">
-                <form string="Alert">
+                <form string="Alert" create="0" delete="0">
                     <header>
                         <button name="action_acknowledge" type="object"
-                                string="Acknowledge" class="oe_highlight"
+                                string="Acknowledge" class="btn-primary"
                                 invisible="state != 'new'"/>
                         <button name="action_resolve" type="object"
-                                string="Resolve" class="oe_highlight"
+                                string="Mark as Resolved" class="btn-success"
                                 invisible="state not in ('new', 'acknowledged')"/>
                         <button name="action_dismiss" type="object"
                                 string="Dismiss"
@@ -95,29 +101,38 @@
                             <button name="action_open_record" type="object"
                                     class="oe_stat_button" icon="fa-external-link"
                                     invisible="not res_model"
-                                    string="Open Record"/>
+                                    string="Go to Related Record"/>
                         </div>
+                        <widget name="web_ribbon" title="Critical"
+                                bg_color="text-bg-danger"
+                                invisible="severity != 'critical' or state in ('resolved','dismissed')"/>
                         <div class="oe_title">
                             <h1><field name="subject"/></h1>
                         </div>
                         <group>
-                            <group>
+                            <group string="Alert Details">
                                 <field name="rule_id" readonly="1"/>
                                 <field name="alert_type" readonly="1"/>
-                                <field name="severity" readonly="1"/>
+                                <field name="severity" widget="badge"
+                                       decoration-danger="severity == 'critical'"
+                                       decoration-warning="severity == 'warning'"
+                                       decoration-info="severity == 'info'"
+                                       readonly="1"/>
                                 <field name="triggered_on" readonly="1"/>
                             </group>
-                            <group>
+                            <group string="Values">
                                 <field name="measured_value" readonly="1"/>
                                 <field name="threshold_value" readonly="1"/>
-                                <field name="acknowledged_by" readonly="1"/>
-                                <field name="acknowledged_on" readonly="1"/>
                                 <field name="escalated" readonly="1"/>
                             </group>
                         </group>
-                        <field name="body" readonly="1"/>
-                        <group>
-                            <field name="resolution_note"/>
+                        <group string="Description">
+                            <field name="body" readonly="1" nolabel="1" colspan="2"/>
+                        </group>
+                        <group string="Resolution">
+                            <field name="resolution_note" placeholder="Add resolution notes here..."/>
+                            <field name="acknowledged_by" readonly="1"/>
+                            <field name="acknowledged_on" readonly="1"/>
                         </group>
                     </sheet>
                     <chatter/>
@@ -133,12 +148,27 @@
                     <field name="subject"/>
                     <field name="rule_id"/>
                     <field name="alert_type"/>
+                    <separator/>
+                    <filter name="filter_open" string="Open"
+                            domain="[('state', 'in', ('new', 'acknowledged'))]"/>
                     <filter name="filter_new" string="New"
                             domain="[('state', '=', 'new')]"/>
+                    <filter name="filter_acknowledged" string="Acknowledged"
+                            domain="[('state', '=', 'acknowledged')]"/>
+                    <filter name="filter_resolved" string="Resolved"
+                            domain="[('state', '=', 'resolved')]"/>
+                    <filter name="filter_dismissed" string="Dismissed"
+                            domain="[('state', '=', 'dismissed')]"/>
+                    <separator/>
                     <filter name="filter_critical" string="Critical"
                             domain="[('severity', '=', 'critical')]"/>
+                    <filter name="filter_warning" string="Warning"
+                            domain="[('severity', '=', 'warning')]"/>
                     <filter name="filter_escalated" string="Escalated"
                             domain="[('escalated', '=', True)]"/>
+                    <separator/>
+                    <filter name="filter_today" string="Today"
+                            domain="[('triggered_on', '&gt;=', context_today().strftime('%Y-%m-%d 00:00:00'))]"/>
                     <group expand="0" string="Group By">
                         <filter name="group_severity" string="Severity"
                                 context="{'group_by': 'severity'}"/>
@@ -146,6 +176,8 @@
                                 context="{'group_by': 'alert_type'}"/>
                         <filter name="group_state" string="Status"
                                 context="{'group_by': 'state'}"/>
+                        <filter name="group_date" string="Date"
+                                context="{'group_by': 'triggered_on:day'}"/>
                     </group>
                 </search>
             </field>

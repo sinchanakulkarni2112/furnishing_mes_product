@@ -21,7 +21,7 @@
                     <field name="total_planned_qty" sum="Quantity"/>
                     <field name="total_planned_hours" sum="Hours"
                            widget="float_time"/>
-                    <field name="capacity_utilization_pct" widget="percentage"
+                    <field name="capacity_utilization_pct" widget="fmes_pct"
                            optional="show"/>
                     <field name="overloaded_line_count" optional="hide"/>
                     <field name="generated_by" optional="hide"/>
@@ -48,7 +48,8 @@
                                 class="btn-primary"
                                 invisible="state != 'confirmed'"
                                 help="Pushes the planned dates onto the manufacturing and work orders."/>
-                        <button name="action_done" type="object" string="Mark Done"
+                        <button name="action_done" type="object" string="Mark as Done"
+                                class="btn-secondary"
                                 invisible="state not in ('released', 'in_progress')"/>
                         <button name="action_open_board" type="object"
                                 string="Scheduling Board" class="btn-secondary"
@@ -96,8 +97,7 @@
                                        widget="float_time"/>
                                 <field name="total_available_hours"
                                        widget="float_time"/>
-                                <field name="capacity_utilization_pct"
-                                       widget="percentage"/>
+                                <field name="capacity_utilization_pct" widget="fmes_pct"/>
                                 <field name="overloaded_line_count"/>
                                 <field name="generated_by"/>
                             </group>
@@ -140,8 +140,23 @@
                                     </list>
                                 </field>
                             </page>
+                            <page string="Exceptions" name="exceptions"
+                                  invisible="overloaded_line_count == 0 and not unscheduled_demand_note">
+                                <group>
+                                    <field name="overloaded_line_count" readonly="1"/>
+                                    <field name="unscheduled_demand_note" readonly="1" nolabel="1"/>
+                                </group>
+                            </page>
                             <page string="Notes" name="notes">
                                 <field name="note"/>
+                            </page>
+                            <page string="Audit History" name="audit">
+                                <group>
+                                    <field name="generated_by" readonly="1"/>
+                                    <field name="create_date" readonly="1"/>
+                                    <field name="write_date" readonly="1"/>
+                                    <field name="write_uid" readonly="1"/>
+                                </group>
                             </page>
                         </notebook>
                     </sheet>

@@ -220,7 +220,23 @@ class TestPlanFeedback(ExecutionCase):
         self.assertTrue(self.line, "The fixture plan should load the saw")
 
     def _entry_for_line(self, line):
-        return self.env['fmes.production.entry'].create({
+        """The entry for a plan line - release already created it.
+
+        Falls back to the slot's pre-existing fixture entry (the generator
+        skips slots that already have one) and links it, then to a new one.
+        """
+        Entry = self.env['fmes.production.entry']
+        entry = Entry.search([('plan_line_id', '=', line.id)], limit=1)
+        if not entry:
+            entry = Entry.search([
+                ('date', '=', line.date),
+                ('shift_id', '=', line.shift_id.id),
+                ('workcenter_id', '=', line.workcenter_id.id),
+                ('product_id', '=', line.product_id.id)], limit=1)
+            if entry:
+                entry.write({'plan_line_id': line.id,
+                             'planned_qty': line.planned_qty})
+        return entry or Entry.create({
             'date': line.date,
             'shift_id': line.shift_id.id,
             'workcenter_id': line.workcenter_id.id,
@@ -289,25 +305,39 @@ class TestPlanFeedback(ExecutionCase):
 @tagged('post_install', '-at_install', 'fmes', 'fmes_phase4')
 class TestEntryGeneration(ExecutionCase):
 
-    def test_entries_are_created_from_a_released_plan(self):
+    def _plan_entries(self, plan):
+        return self.env['fmes.production.entry'].search(
+            [('plan_line_id', 'in', plan.line_ids.ids)])
+
+    def test_releasing_a_plan_creates_its_due_entries(self):
+        """No cron run, no developer-mode trigger: release alone is enough."""
         plan = self._released_plan()
-        created = self.env['fmes.production.entry']._generate_from_plan(
-            self.day)
-        self.assertTrue(created)
-        for entry in created:
+        entries = self._plan_entries(plan)
+        self.assertTrue(entries)
+        for entry in entries:
             self.assertEqual(entry.state, 'draft')
-            self.assertTrue(entry.plan_line_id)
             self.assertAlmostEqual(
                 entry.planned_qty, entry.plan_line_id.planned_qty, places=4)
 
-    def test_generation_is_idempotent(self):
-        self._released_plan()
+    def test_generation_after_release_is_idempotent(self):
+        plan = self._released_plan()
         Entry = self.env['fmes.production.entry']
-        first = Entry._generate_from_plan(self.day)
-        second = Entry._generate_from_plan(self.day)
-        self.assertTrue(first)
         self.assertFalse(
-            second, "Running the generator twice must not duplicate entries")
+            Entry._generate_from_plan(self.day),
+            "Release already created them; the cron must not duplicate")
+        self.assertFalse(Entry._generate_for_plan(plan))
+
+    def test_future_dates_are_left_to_the_cron(self):
+        future = date.today() + timedelta(days=30)
+        plan = self.env['fmes.planning.engine'].generate(future, future)
+        plan.action_confirm()
+        plan.action_release()
+        self.assertTrue(plan.line_ids)
+        self.assertFalse(
+            self._plan_entries(plan),
+            "A future-dated line should not get an idle draft entry yet")
+        created = self.env['fmes.production.entry']._generate_from_plan(future)
+        self.assertTrue(created, "The nightly cron still creates them")
 
     def test_draft_plans_produce_no_entries(self):
         self.env['fmes.planning.engine'].generate(self.day, self.day)

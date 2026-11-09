@@ -171,6 +171,9 @@ class FmesProductionPlan(models.Model):
             plan.state = 'released'
             plan.line_ids.filtered(
                 lambda l: l.state == 'pending').write({'state': 'pending'})
+            # Generated AFTER the state flips: the generator only looks at
+            # lines belonging to released plans.
+            self.env['fmes.production.entry']._generate_for_plan(plan)
 
     def action_reset_to_draft(self):
         self.write({'state': 'draft'})

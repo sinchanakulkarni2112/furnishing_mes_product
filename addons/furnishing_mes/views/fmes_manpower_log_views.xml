@@ -17,8 +17,8 @@
                     <field name="actual_manpower"/>
                     <field name="absent_count" optional="show"/>
                     <field name="shortage" optional="show"/>
-                    <field name="shortage_pct" widget="percentage"/>
-                    <field name="utilization_pct" widget="percentage"
+                    <field name="shortage_pct" widget="fmes_pct"/>
+                    <field name="utilization_pct" widget="fmes_pct"
                            optional="show"/>
                     <field name="overtime_hours" optional="hide"/>
                     <field name="reason" optional="hide"/>
@@ -52,8 +52,8 @@
                         <group>
                             <group string="Computed">
                                 <field name="shortage"/>
-                                <field name="shortage_pct" widget="percentage"/>
-                                <field name="utilization_pct" widget="percentage"/>
+                                <field name="shortage_pct" widget="fmes_pct"/>
+                                <field name="utilization_pct" widget="fmes_pct"/>
                             </group>
                         </group>
                         <group>

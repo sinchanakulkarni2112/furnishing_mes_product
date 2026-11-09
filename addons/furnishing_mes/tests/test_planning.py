@@ -265,10 +265,38 @@ class TestPlanGeneration(PlanningCase):
         plan = self._generate()
         self.assertGreater(preview['demand_count'], 0)
         self.assertGreater(preview['available_hours'], 0)
-        # The preview sizes demand on the fastest eligible machine, so it is a
-        # lower bound on what the plan actually consumes.
-        self.assertLessEqual(
-            preview['required_hours'], plan.total_planned_hours + 1e-6)
+        # The preview is a dry run of the same allocator, so the hours it
+        # places must equal the generated plan's to the hour; whatever does
+        # not fit is reported separately as overflow.
+        self.assertAlmostEqual(
+            preview['required_hours'] - preview['overflow_hours'],
+            plan.total_planned_hours, places=4)
+
+    def test_preview_reports_load_per_machine(self):
+        preview = self.env['fmes.planning.engine'].preview(
+            self.plan_from, self.plan_to)
+        load = preview['machine_load']
+        self.assertTrue(load)
+        self.assertAlmostEqual(
+            sum(row['required_hours'] for row in load),
+            preview['required_hours'] - preview['overflow_hours'], places=4)
+        for row in load:
+            self.assertGreaterEqual(row['utilization_pct'], 0.0)
+            # A machine's own load is a share of ITS capacity, never of the
+            # plant's - the distortion that produced 6000%+ figures.
+            self.assertLessEqual(row['utilization_pct'], 100.0 + 1e-6)
+        self.assertEqual(
+            preview['peak_utilization_pct'], load[0]['utilization_pct'])
+
+    def test_preview_flags_a_saturated_machine(self):
+        """Demand far beyond capacity: overflow shows and a machine is full."""
+        self._make_mo(self.product_wardrobe, 100000.0, date(2026, 1, 9))
+        preview = self.env['fmes.planning.engine'].preview(
+            self.plan_from, self.plan_to)
+        self.assertGreater(preview['overflow_hours'], 0.0)
+        self.assertGreater(preview['utilization_pct'], 100.0)
+        self.assertGreaterEqual(preview['bottleneck_count'], 1)
+        self.assertEqual(preview['machine_load'][0]['status'], 'full')
 
 
 @tagged('post_install', '-at_install', 'fmes', 'fmes_phase3')

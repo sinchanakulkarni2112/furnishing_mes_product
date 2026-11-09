@@ -16,7 +16,7 @@
                 <!-- Declare the fields at the kanban root, alongside the
                      ones the Phase 2 view already declares there. -->
                 <xpath expr="//field[@name='fmes_is_bottleneck']" position="after">
-                    <field name="fmes_utilization_pct"/>
+                    <field name="fmes_utilization_pct" widget="fmes_pct"/>
                     <field name="fmes_is_under_utilized"/>
                 </xpath>
 
@@ -50,7 +50,7 @@
             <field name="inherit_id" ref="mrp_workcenter_view_list_fmes"/>
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='fmes_std_manpower']" position="after">
-                    <field name="fmes_utilization_pct" widget="percentage"
+                    <field name="fmes_utilization_pct" widget="fmes_pct"
                            optional="show"/>
                 </xpath>
             </field>

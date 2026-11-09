@@ -27,6 +27,8 @@ from datetime import timedelta
 from odoo import _, api, fields, models
 from odoo.tools import float_round
 
+from .utilization_service import BOTTLENECK_THRESHOLD_PCT
+
 # How far back to look when derating a machine for its unplanned downtime.
 AVAILABILITY_LOOKBACK_DAYS = 90
 # Never derate a machine below this, however bad its history: a machine that
@@ -554,7 +556,19 @@ class FmesPlanningEngine(models.AbstractModel):
     def preview(self, date_from, date_to, departments=None,
                 demand_source='open_mo', include_carry_forward=True,
                 company=None):
-        """Summarise demand against capacity without creating a plan."""
+        """Summarise demand against capacity without creating a plan.
+
+        This is a dry run of the real allocator, not a separate formula, so
+        what the wizard shows is what `generate()` will then produce: the
+        same machines, the same fill order, the same changeovers. Load is
+        reported per machine, which is what exposes a bottleneck - a plant
+        at 55% overall can still have one machine at 100% that everything is
+        queued behind.
+
+        Demand the horizon cannot hold is counted as overflow hours on top
+        of the placed hours, so projected utilisation can honestly exceed
+        100% when the plan cannot be executed as asked.
+        """
         company = company or self.env.company
         demands = self._collect_demand(
             date_from, date_to, departments=departments,
@@ -563,16 +577,59 @@ class FmesPlanningEngine(models.AbstractModel):
         slots = self._build_capacity_slots(
             date_from, date_to, departments=departments, company=company)
 
-        required_hours = 0.0
+        available_by_machine = defaultdict(float)
+        for (_day, _shift, machine_id), slot in slots.items():
+            available_by_machine[machine_id] += slot['capacity']
+
+        # An empty recordset: `_allocate` only reads `plan.id` to stamp lines
+        # it never saves here.
+        no_plan = self.env['fmes.production.plan']
+        placed_by_machine = defaultdict(float)
+        placed_hours = 0.0
+        overflow_hours = 0.0
         unrated = 0
         for demand in demands:
             machines = self._eligible_machines(demand)
             if not machines:
                 unrated += 1
                 continue
-            best_rate = max(m['rate'] for m in machines.values())
-            required_hours += demand['qty'] / best_rate
+            # One demand at a time against the shared, mutating slots: the
+            # slot state carries over exactly as it does inside generate().
+            lines, _unplaced = self._allocate([demand], slots, no_plan)
+            placed_qty = 0.0
+            for vals in lines:
+                placed_by_machine[vals['workcenter_id']] += vals['planned_hours']
+                placed_hours += vals['planned_hours']
+                placed_qty += vals['planned_qty']
+            leftover = demand['qty'] - placed_qty
+            if leftover > 1e-6:
+                best_rate = max(m['rate'] for m in machines.values())
+                overflow_hours += leftover / best_rate
 
+        machine_names = {
+            m.id: m.display_name for m in self.env['mrp.workcenter'].browse(
+                list(placed_by_machine))}
+        machine_load = []
+        for machine_id, hours in placed_by_machine.items():
+            available = available_by_machine[machine_id]
+            pct = hours / available * 100.0 if available else 0.0
+            if pct >= 100.0 - 1e-6:
+                status = 'full'
+            elif pct >= BOTTLENECK_THRESHOLD_PCT:
+                status = 'bottleneck'
+            else:
+                status = 'ok'
+            machine_load.append({
+                'workcenter_id': machine_id,
+                'name': machine_names.get(machine_id, str(machine_id)),
+                'required_hours': hours,
+                'available_hours': available,
+                'utilization_pct': pct,
+                'status': status,
+            })
+        machine_load.sort(key=lambda r: (-r['utilization_pct'], r['name']))
+
+        required_hours = placed_hours + overflow_hours
         available_hours = sum(slot['capacity'] for slot in slots.values())
         return {
             'demand_count': len(demands),
@@ -580,8 +637,15 @@ class FmesPlanningEngine(models.AbstractModel):
                 1 for d in demands if d['source'] == 'carry_forward'),
             'unrated_count': unrated,
             'required_hours': required_hours,
+            'overflow_hours': overflow_hours,
             'available_hours': available_hours,
             'utilization_pct': (required_hours / available_hours * 100.0)
             if available_hours else 0.0,
             'machine_shift_slots': len(slots),
+            'machine_load': machine_load,
+            'bottleneck_count': sum(
+                1 for r in machine_load if r['status'] != 'ok'),
+            'peak_utilization_pct': (
+                machine_load[0]['utilization_pct'] if machine_load else 0.0),
+            'bottleneck_threshold_pct': BOTTLENECK_THRESHOLD_PCT,
         }

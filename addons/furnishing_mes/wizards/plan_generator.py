@@ -8,6 +8,8 @@ loaded" rather than a plan that quietly drops a third of the orders.
 
 from datetime import timedelta
 
+from markupsafe import Markup, escape
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
@@ -53,6 +55,16 @@ class FmesPlanGenerator(models.TransientModel):
         compute='_compute_preview', string='Projected Utilisation %')
     machine_shift_slots = fields.Integer(
         compute='_compute_preview', string='Machine-Shift Slots')
+    bottleneck_count = fields.Integer(
+        compute='_compute_preview', string='Bottleneck Machines',
+        help="Machines whose projected load is at or above the bottleneck "
+             "threshold, even when the plant as a whole has spare capacity.")
+    peak_utilization_pct = fields.Float(
+        compute='_compute_preview', string='Busiest Machine %',
+        help="Projected load on the single busiest machine.")
+    load_html = fields.Html(
+        compute='_compute_preview', string='Workcenter Load',
+        sanitize=False, readonly=True)
     preview_warning = fields.Char(compute='_compute_preview')
 
     company_id = fields.Many2one(
@@ -80,6 +92,9 @@ class FmesPlanGenerator(models.TransientModel):
             wizard.available_hours = data['available_hours']
             wizard.utilization_pct = data['utilization_pct']
             wizard.machine_shift_slots = data['machine_shift_slots']
+            wizard.bottleneck_count = data['bottleneck_count']
+            wizard.peak_utilization_pct = data['peak_utilization_pct']
+            wizard.load_html = wizard._build_load_html(data)
             wizard.preview_warning = wizard._build_warning(data)
 
     def _reset_preview(self):
@@ -90,6 +105,9 @@ class FmesPlanGenerator(models.TransientModel):
         self.available_hours = 0.0
         self.utilization_pct = 0.0
         self.machine_shift_slots = 0
+        self.bottleneck_count = 0
+        self.peak_utilization_pct = 0.0
+        self.load_html = False
         self.preview_warning = False
 
     def _build_warning(self, data):
@@ -99,10 +117,47 @@ class FmesPlanGenerator(models.TransientModel):
         if data['utilization_pct'] > 100.0:
             return _("Demand exceeds capacity for this period. The plan will "
                      "cover what fits and list the rest as unscheduled.")
+        if data['bottleneck_count']:
+            return _(
+                "%(count)s machine(s) would run at or above %(threshold).0f%% "
+                "load while the plant overall is at %(overall).0f%%. Work "
+                "queued behind them will slip into later shifts.",
+                count=data['bottleneck_count'],
+                threshold=data['bottleneck_threshold_pct'],
+                overall=data['utilization_pct'])
         if data['unrated_count']:
             return _("%(count)s demand item(s) have no capacity rate and will "
                      "be left unscheduled.", count=data['unrated_count'])
         return False
+
+    def _build_load_html(self, data):
+        """A small table of projected load per machine, worst first."""
+        rows = data['machine_load']
+        if not rows:
+            return False
+        badge = {
+            'full': ('danger', _("Full")),
+            'bottleneck': ('warning', _("Bottleneck")),
+            'ok': ('success', _("OK")),
+        }
+        body = Markup('').join(
+            Markup('<tr><td>%s</td><td class="text-end">%s h</td>'
+                   '<td class="text-end">%s h</td><td class="text-end">'
+                   '%s%%</td><td><span class="badge text-bg-%s">%s</span>'
+                   '</td></tr>') % (
+                escape(row['name']),
+                '%.1f' % row['required_hours'],
+                '%.1f' % row['available_hours'],
+                '%.0f' % row['utilization_pct'],
+                badge[row['status']][0], badge[row['status']][1])
+            for row in rows)
+        return Markup(
+            '<table class="table table-sm mb-0"><thead><tr>'
+            '<th>%s</th><th class="text-end">%s</th>'
+            '<th class="text-end">%s</th><th class="text-end">%s</th>'
+            '<th>%s</th></tr></thead><tbody>%s</tbody></table>') % (
+            _("Machine"), _("Required"), _("Available"), _("Load"),
+            _("Status"), body)
 
     @api.onchange('plan_type', 'date_from')
     def _onchange_plan_type(self):

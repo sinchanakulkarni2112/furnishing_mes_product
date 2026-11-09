@@ -109,6 +109,7 @@ ERP 10.8 integration is deferred; the integration seam is present but dormant.
         'views/fmes_support_ticket_views.xml',
         'views/fmes_alert_rule_views.xml',
         'views/portal_templates.xml',
+        'views/sale_order_views.xml',
         'views/menus.xml',
         # Loads after menus.xml: it assigns the tile-dashboard client action
         # to the top-level menu records menus.xml declares.
@@ -137,6 +138,7 @@ ERP 10.8 integration is deferred; the integration seam is present but dormant.
             'furnishing_mes/static/src/scss/fmes_alert.scss',
             'furnishing_mes/static/src/scss/fmes_ticket.scss',
             'furnishing_mes/static/src/scss/menu_dashboard.scss',
+            'furnishing_mes/static/src/js/percent_field.js',
             'furnishing_mes/static/src/js/scheduling_board.js',
             'furnishing_mes/static/src/js/shopfloor_terminal.js',
             'furnishing_mes/static/src/js/executive_dashboard.js',
@@ -144,6 +146,7 @@ ERP 10.8 integration is deferred; the integration seam is present but dormant.
             'furnishing_mes/static/src/js/alert_systray.js',
             'furnishing_mes/static/src/js/menu_dashboard.js',
             'furnishing_mes/static/src/js/tours/fmes_tours.js',
+            'furnishing_mes/static/src/xml/percent_field.xml',
             'furnishing_mes/static/src/xml/scheduling_board.xml',
             'furnishing_mes/static/src/xml/shopfloor_terminal.xml',
             'furnishing_mes/static/src/xml/executive_dashboard.xml',

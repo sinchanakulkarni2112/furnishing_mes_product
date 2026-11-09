@@ -255,3 +255,79 @@ class TestPortalHttp(HttpCase):
             response.url.endswith('/my') or '/my' in response.url,
             "Expected a portal user to be redirected to /my, landed on %s"
             % response.url)
+
+    # --------------------------------------------------------------
+    # Place order / request a quote
+    # --------------------------------------------------------------
+    def _csrf_token(self, url):
+        response = self.url_open(url)
+        match = re.search(rb'name="csrf_token" value="([^"]+)"', response.content)
+        self.assertTrue(match, "no CSRF token on %s" % url)
+        return match.group(1).decode()
+
+    def _orderable_product(self, name='Portal Order Desk', sale_ok=True):
+        return self.env['product.product'].create({
+            'name': name, 'sale_ok': sale_ok, 'list_price': 250.0})
+
+    def test_order_form_lists_saleable_products_only(self):
+        self._orderable_product('Visible Desk')
+        self._orderable_product('Hidden Component', sale_ok=False)
+        self.authenticate('http_portal_a@example.com', 'demo12345')
+        response = self.url_open('/my/orders/new')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Visible Desk', response.content)
+        self.assertNotIn(b'Hidden Component', response.content)
+
+    def test_order_form_creates_a_sent_quotation_for_the_submitter(self):
+        product = self._orderable_product()
+        self.authenticate('http_portal_a@example.com', 'demo12345')
+        token = self._csrf_token('/my/orders/new')
+        self.url_open('/my/orders/new', data={
+            'csrf_token': token,
+            'qty_%d' % product.id: '4',
+            'note': 'Needed before month end',
+        })
+        order = self.env['sale.order'].search(
+            [('partner_id', '=', self.partner_a.id)], order='id desc', limit=1)
+        self.assertTrue(order, "no quotation was created")
+        self.assertEqual(order.state, 'sent')
+        self.assertEqual(order.order_line.product_id, product)
+        self.assertEqual(order.order_line.product_uom_qty, 4.0)
+        # Nothing is confirmed, so no production demand yet.
+        self.assertFalse(order.order_line.fmes_production_ids)
+
+    def test_order_form_rejects_an_empty_submission(self):
+        self._orderable_product()
+        self.authenticate('http_portal_a@example.com', 'demo12345')
+        token = self._csrf_token('/my/orders/new')
+        before = self.env['sale.order'].search_count(
+            [('partner_id', '=', self.partner_a.id)])
+        response = self.url_open('/my/orders/new', data={'csrf_token': token})
+        self.assertIn(b'at least one product', response.content)
+        self.assertEqual(
+            self.env['sale.order'].search_count(
+                [('partner_id', '=', self.partner_a.id)]), before)
+
+    def test_order_form_ignores_a_product_that_is_not_orderable(self):
+        hidden = self._orderable_product('Secret Component', sale_ok=False)
+        self.authenticate('http_portal_a@example.com', 'demo12345')
+        token = self._csrf_token('/my/orders/new')
+        before = self.env['sale.order'].search_count(
+            [('partner_id', '=', self.partner_a.id)])
+        self.url_open('/my/orders/new', data={
+            'csrf_token': token, 'qty_%d' % hidden.id: '3'})
+        self.assertEqual(
+            self.env['sale.order'].search_count(
+                [('partner_id', '=', self.partner_a.id)]), before)
+
+    def test_order_form_rejects_an_absurd_quantity(self):
+        product = self._orderable_product()
+        self.authenticate('http_portal_a@example.com', 'demo12345')
+        token = self._csrf_token('/my/orders/new')
+        before = self.env['sale.order'].search_count(
+            [('partner_id', '=', self.partner_a.id)])
+        self.url_open('/my/orders/new', data={
+            'csrf_token': token, 'qty_%d' % product.id: '99999999'})
+        self.assertEqual(
+            self.env['sale.order'].search_count(
+                [('partner_id', '=', self.partner_a.id)]), before)

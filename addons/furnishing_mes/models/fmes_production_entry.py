@@ -604,6 +604,29 @@ class FmesProductionEntry(models.Model):
         return self.create(vals_list) if vals_list else self.browse()
 
     @api.model
+    def _generate_for_plan(self, plan):
+        """Create the draft entries a freshly released plan already owes.
+
+        Releasing a plan is the moment the shop floor should be able to start
+        work, so entries for today - and for any earlier date the plan
+        covers (a plan released late) - are created now instead of waiting
+        for the next midnight cron. Future dates are deliberately left to the
+        cron: a week of idle drafts only clutters the terminal and has to be
+        cleaned up if the plan is re-planned. Idempotent, like
+        `_generate_from_plan`.
+        """
+        today = fields.Date.context_today(self)
+        dates = sorted({
+            line.date for line in plan.line_ids
+            if line.date and line.date <= today
+            and line.state not in ('cancelled', 'done')})
+        created = self.browse()
+        for day in dates:
+            created |= self.with_company(plan.company_id)._generate_from_plan(
+                target_date=day, company=plan.company_id)
+        return created
+
+    @api.model
     def _cron_generate_daily_entries(self):
         """Scheduled action: prepare today's entries for every company."""
         for company in self.env['res.company'].search([]):

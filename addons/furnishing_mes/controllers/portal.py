@@ -18,12 +18,18 @@ actually enforces the ownership boundary, this controller only decides
 what to do when that check fails.
 """
 
-from odoo import _, http
+import logging
+
+from odoo import Command, _, http
 from odoo.addons.portal.controllers.portal import CustomerPortal, pager as portal_pager
 from odoo.exceptions import AccessError, MissingError
 from odoo.http import request
 
+_logger = logging.getLogger(__name__)
+
 TICKETS_PER_PAGE = 20
+# A typo of an extra zero should not become a six-figure production demand.
+MAX_ORDER_QTY = 10000
 
 
 class FmesPortal(CustomerPortal):
@@ -181,3 +187,127 @@ class FmesPortal(CustomerPortal):
             'orders': orders,
             'page_name': 'production_report',
         })
+
+    # ------------------------------------------------------------
+    # Place order / request a quote
+    #
+    # Community has no website_sale, so a portal customer has no native way
+    # to START an order - only to read and accept quotations sales already
+    # prepared. This form closes that gap: it creates a quotation in the
+    # 'sent' state (visible under /my/quotes, acceptable with the native
+    # "Accept & Sign" flow) and tells sales about it. Nothing is confirmed
+    # here, so no manufacturing order or planning demand appears until the
+    # customer accepts a quotation sales has had the chance to review.
+    # ------------------------------------------------------------
+    def _orderable_products(self):
+        """Finished goods the customer may order.
+
+        sudo(): a portal login has no read access to the product catalogue,
+        and this is a deliberately narrow, read-only window onto it - only
+        saleable, non-service products, and only the fields the template
+        shows (name, reference, list price). Components are `sale_ok=False`
+        and never appear.
+        """
+        return request.env['product.product'].sudo().search([
+            ('sale_ok', '=', True),
+            ('type', '!=', 'service'),
+            ('company_id', 'in', (False, request.env.company.id)),
+        ], order='name, id')
+
+    @http.route(['/my/orders/new'], type='http', auth='user', website=True,
+                methods=['GET', 'POST'])
+    def portal_order_new(self, **kwargs):
+        products = self._orderable_products()
+        error = {}
+        quantities = {}
+
+        if request.httprequest.method == 'POST':
+            for product in products:
+                raw = (kwargs.get('qty_%d' % product.id) or '').strip()
+                if not raw:
+                    continue
+                try:
+                    qty = float(raw)
+                except ValueError:
+                    error['lines'] = _(
+                        "'%s' is not a valid quantity.", raw)
+                    break
+                if qty < 0 or qty > MAX_ORDER_QTY:
+                    error['lines'] = _(
+                        "Quantities must be between 0 and %s.",
+                        MAX_ORDER_QTY)
+                    break
+                if qty:
+                    quantities[product.id] = qty
+
+            if not error and not quantities:
+                error['lines'] = _(
+                    "Choose a quantity for at least one product.")
+
+            if not error:
+                order = self._create_portal_quotation(
+                    products.filtered(lambda p: p.id in quantities),
+                    quantities, (kwargs.get('note') or '').strip())
+                return request.redirect(order.get_portal_url())
+
+            # Re-render with what the customer typed.
+            quantities = {
+                product.id: kwargs.get('qty_%d' % product.id)
+                for product in products
+                if kwargs.get('qty_%d' % product.id)}
+
+        return request.render('furnishing_mes.portal_order_new', {
+            'products': products,
+            'currency': request.env.company.currency_id,
+            'error': error,
+            'quantities': quantities,
+            'note': kwargs.get('note') or '',
+            'page_name': 'order_new',
+        })
+
+    def _create_portal_quotation(self, products, quantities, note):
+        """Create the quotation for the logged-in customer.
+
+        sudo() is needed because a portal user has no create right on
+        `sale.order`. It is safe because nothing the customer submitted
+        decides WHO the order belongs to: the partner comes from the session
+        user, never from the request, and the lines can only reference
+        products that `_orderable_products` already vetted.
+        """
+        partner = request.env.user.partner_id.commercial_partner_id
+        order = request.env['sale.order'].sudo().create({
+            'partner_id': partner.id,
+            'company_id': request.env.company.id,
+            'origin': _("Portal quote request"),
+            'note': note or False,
+            'order_line': [
+                Command.create({
+                    'product_id': product.id,
+                    'product_uom_qty': quantities[product.id],
+                })
+                for product in products],
+        })
+        order.action_quotation_sent()
+        self._notify_sales_of_quote_request(order, note)
+        return order
+
+    def _notify_sales_of_quote_request(self, order, note):
+        """Best effort: a failed notification must never lose the request."""
+        try:
+            summary = _("Review portal quote request %s", order.name)
+            responsible = order.user_id
+            if not responsible:
+                responsible = request.env.ref(
+                    'sales_team.group_sale_manager').sudo().users[:1]
+            if responsible:
+                order.activity_schedule(
+                    'mail.mail_activity_data_todo',
+                    summary=summary, user_id=responsible.id,
+                    note=note or False)
+            order.message_post(body=_(
+                "Quote requested by %s through the customer portal.",
+                request.env.user.name))
+        except Exception:  # noqa: BLE001 - deliberately broad, see docstring
+            _logger.exception(
+                "Could not notify sales about portal quote request %s",
+                order.name)
