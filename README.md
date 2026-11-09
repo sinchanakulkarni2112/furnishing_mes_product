@@ -16,8 +16,8 @@ frontend, `ir.cron` covers scheduling, and Odoo's own server covers HTTP.
 ## Quickstart
 
 ```bash
-git clone https://github.com/sinchanakulkarni2112/furnishing_mes.git
-cd furnishing_mes
+git clone https://github.com/sinchanakulkarni2112/furnishing_mes_product.git
+cd furnishing_mes_product
 
 cp .env.example .env
 # Edit .env and set POSTGRES_PASSWORD to a strong value.

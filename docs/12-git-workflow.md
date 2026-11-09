@@ -95,7 +95,7 @@ This machine has two GitHub identities in `~/.ssh/config`. Pushes must use the
 SSH alias for the account that owns the repository:
 
 ```bash
-git remote set-url origin git@github-sinchan:sinchanakulkarni2112/furnishing_mes.git
+git remote set-url origin git@github-sinchan:sinchanakulkarni2112/furnishing_mes_product.git
 ```
 
 The default HTTPS credential and the plain `github.com` SSH host both

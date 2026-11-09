@@ -2652,6 +2652,54 @@ this environment (docs/17 L4).
 
 ---
 
+### Closed-loop refinement round - order to alert, no manual workarounds (this round)
+
+**Why:** a manual end-to-end run (portal quote -> plan -> release -> terminal ->
+approval -> invoice) only worked because of hand-fixes: the daily-entry cron
+was triggered from developer mode, the wizard showed 6000%+ utilisation, the
+terminal had no way out, and the portal had nothing to start an order with.
+This round removes each workaround so the same path runs unassisted.
+
+**Delivered**
+- `/my/orders/new` portal order form -> a *Quotation Sent* record plus an
+  activity for sales (A58). Nothing is confirmed until the customer accepts.
+- `fmes.production.entry._generate_for_plan`, called from `action_release`
+  (A59): today's and earlier entries exist the moment a plan is released.
+- Plan wizard preview is now a dry run of `_allocate`, one demand at a time
+  against the shared slots (A61), returning per-machine load, a bottleneck
+  count and overflow hours; rendered as an HTML table in the wizard.
+- Terminal: `Exit Terminal` button in both headers, a confirmation modal, and
+  `/fmes/terminal/exit` which clears the PIN-switched operator but keeps
+  `fmes_pin_failures` (exiting must not reset the lockout).
+- Approval Queue: its own flat list view with per-row Approve / Reject; the
+  bulk server actions are now restricted to the Supervisor group.
+- `fmes_pct` field widget for 0-100 values (A60).
+
+**Decisions / surprises**
+- The percentage "bug" was a unit mismatch, not a calculation error: every
+  `*_pct` field is `x / y * 100`, and Odoo's `percentage` widget multiplies by
+  100 again. An earlier hand-fix stripped the widget everywhere, which would
+  have broken `availability`/`performance`/`quality` - those three are true
+  0-1 fractions in the SQL view and correctly keep the stock widget. Check the
+  SQL/compute, not the field name, before choosing a widget.
+- An earlier idea of a separate "balanced" estimate in the wizard was dropped:
+  the real allocator fills machines in a fixed order (declared bottlenecks
+  first), so a balanced estimate would have disagreed with the plan the
+  button then generates. The preview now cannot disagree by construction.
+- Changing `action_release` meant the old `TestEntryGeneration` tests, which
+  called `_generate_from_plan` after releasing and expected rows back, had to
+  be rewritten - release now creates them first.
+- Repo is now `furnishing_mes_product` (remote already pointed there); the
+  docs' clone URLs and remote commands were updated to match.
+- Pushing from WSL works over HTTPS because `gh auth` is logged in as
+  `sinchanakulkarni2112`; the `github-sinchan` SSH alias is not configured in
+  this WSL distro.
+
+**Not built (noted for later)**
+- The plan allocator still fills machines in fixed order rather than balancing
+  them. If planners want balanced loads, that is an allocator change with its
+  own tests, and it overrides the "declared bottleneck first" intent.
+
 ## Conventions Established
 
 | Convention | Where documented |
@@ -2666,6 +2714,11 @@ this environment (docs/17 L4).
 ---
 
 ## Gotchas Worth Remembering
+
+- **Odoo's `percentage` widget expects a FRACTION and multiplies by 100.** A
+  field computed as `x / y * 100` shown with it reads 100x too large (60 ->
+  6000%). Use `fmes_pct` for 0-100 fields; keep `percentage` for true 0-1
+  fractions.
 
 - **Odoo 18 Community has no `BaseModel.fields_view_get()`.** It was removed
   in favour of `get_view()` / `get_views()`, and in this image there is no

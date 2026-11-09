@@ -25,7 +25,7 @@ a reset), restore it with the two commands above **before** committing.
 The remote must also be the SSH alias for that account:
 
 ```bash
-git remote set-url origin git@github-sinchan:sinchanakulkarni2112/furnishing_mes.git
+git remote set-url origin git@github-sinchan:sinchanakulkarni2112/furnishing_mes_product.git
 ```
 
 HTTPS authenticates as the wrong account and returns 403.
@@ -70,7 +70,7 @@ manufacturer, built as a custom Odoo 18 Community module.
 | Module | `furnishing_mes` in `addons/` |
 | Platform | Odoo 18.0 **Community** Edition |
 | Stack | Odoo ORM + Odoo views + OWL 2, PostgreSQL 15, Docker Compose |
-| Repo | https://github.com/sinchanakulkarni2112/furnishing_mes |
+| Repo | https://github.com/sinchanakulkarni2112/furnishing_mes_product |
 
 ### Architecture rules that are not negotiable
 

@@ -11,7 +11,7 @@ Operating guide for any AI coding agent working in this repository.
    `git config user.name "sinchanakulkarni2112"` and
    `git config user.email "323928844+sinchanakulkarni2112@users.noreply.github.com"`.
    No commit may be authored by `shreyassridhar44` / `shreyassridhar146@gmail.com`.
-   The remote must be `git@github-sinchan:sinchanakulkarni2112/furnishing_mes.git`
+   The remote must be `git@github-sinchan:sinchanakulkarni2112/furnishing_mes_product.git`
    — HTTPS authenticates as the wrong account and 403s. See `CLAUDE.md` §1a.
 2. **No AI authorship.** No agent may appear as author or co-author of any
    commit, tag, PR or document. No `Co-Authored-By` trailer naming an assistant,

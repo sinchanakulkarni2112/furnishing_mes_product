@@ -191,6 +191,11 @@ customer's `commercial_partner_id` via `child_of` — the same rule
 order raised under the company itself is visible to any contact logged in
 at that company, not only the exact contact who raised it.
 
+*Closed-loop refinement (assumption `A58`):* `/my/orders/new` lets a
+customer pick products and quantities and request a quote; it creates a
+*Quotation Sent* record that the customer then accepts through the native
+flow, which is what raises the manufacturing demand.
+
 ---
 
 ## Note on the Customer's Solution Approach

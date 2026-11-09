@@ -1504,6 +1504,24 @@ resolvable, and the Alert Center menu correctly resolving to its action.
 
 ---
 
+## Post-Phase-15 refinement - closed-loop order-to-alert flow
+
+Not a numbered phase: a polish round that joins the existing phases into one
+unbroken path (portal order -> demand -> plan -> release -> terminal ->
+approval -> analytics and alerts) without manual database workarounds.
+
+- [x] Portal "Place Order / Request a Quote" form (`/my/orders/new`, A58)
+- [x] Plan wizard: per-machine load, bottleneck flag, realistic % (A60, A61)
+- [x] Release creates the due shift entries immediately (A59)
+- [x] Terminal "Exit Terminal" button with a confirmation modal
+- [x] Flat Approval Queue list with per-row Approve / Reject
+- [x] Percent fields no longer render 100x too large (A60)
+
+**Deviation from the original plan:** none of the above adds a model; they
+extend existing ones, so no new ACL or record-rule rows were needed.
+
+---
+
 ## Risk Register
 
 | # | Risk | Impact | Mitigation |
