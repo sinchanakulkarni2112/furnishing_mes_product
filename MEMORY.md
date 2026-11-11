@@ -2695,6 +2695,19 @@ This round removes each workaround so the same path runs unassisted.
   `sinchanakulkarni2112`; the `github-sinchan` SSH alias is not configured in
   this WSL distro.
 
+**Dev-database test pollution (cleaned 2026-11-11).** The suite had 19 failures
+on the long-lived dev DB that did not occur on a fresh install. Causes, all
+data rather than code: (1) 26 hand-made operator ACL rows (ids 888-913, none in
+the repo) granting operators read/write/create on report and service models;
+(2) demo PINs on two employees, which the "unprovisioned plant" tests assume
+are absent; (3) the ~100k-row `scripts/seed_load.py` performance dataset,
+removed with the script's own marker-tagged DELETEs (regenerate any time by
+re-running it); (4) tests that asserted exact counts while real nightly
+snapshots, cron-made plan lines and PM requests sat in their window - those
+fixtures now clear competing rows inside the test transaction (rolled back).
+Do NOT run the seed script and then the test suite against the same database.
+A pre-cleanup `pg_dump` is in `~/backups/`.
+
 **Not built (noted for later)**
 - The plan allocator still fills machines in fixed order rather than balancing
   them. If planners want balanced loads, that is an allocator change with its

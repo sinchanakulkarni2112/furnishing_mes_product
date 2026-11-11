@@ -32,6 +32,17 @@ class ReportCase(FmesTestCase):
         cls.service = cls.env['fmes.report.service']
         cls.today = fields.Date.context_today(cls.env.user)
 
+        # These tests assert exact row counts for the fixture below, so they
+        # must not see rows a long-lived database accumulates on its own:
+        # the nightly backlog snapshot, carry-forward lines of cron-made
+        # plans, and cron-made preventive requests. Cleared inside the test
+        # transaction only - it is rolled back when the class finishes, so
+        # the database itself is untouched.
+        cls.env['fmes.backlog.snapshot'].search([]).unlink()
+        cls.env['fmes.production.plan.line'].search(
+            [('source', '=', 'carry_forward')]).unlink()
+        cls.env['maintenance.request'].search([]).unlink()
+
         # ---------------------------------------------------- production
         cls.entry = cls.env['fmes.production.entry'].create({
             'date': cls.today, 'shift_id': cls.shift_a.id,

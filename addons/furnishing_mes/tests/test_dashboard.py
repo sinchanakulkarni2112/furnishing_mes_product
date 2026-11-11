@@ -277,6 +277,10 @@ class TestDashboardTiles(DashboardCase):
 
     def test_backlog_ageing_buckets_the_latest_snapshot(self):
         Snapshot = self.env['fmes.backlog.snapshot']
+        # "Latest" is global, and a long-lived database holds real nightly
+        # snapshots newer than the fixed reference date. Clear them inside
+        # this test's transaction (rolled back afterwards).
+        Snapshot.search([]).unlink()
         Snapshot.create({
             'snapshot_date': REFERENCE_DATE,
             'product_id': self.product_wardrobe.id,
