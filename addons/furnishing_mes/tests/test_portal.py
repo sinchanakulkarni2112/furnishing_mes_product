@@ -259,6 +259,30 @@ class TestPortalHttp(HttpCase):
     # --------------------------------------------------------------
     # Place order / request a quote
     # --------------------------------------------------------------
+    def test_home_page_offers_the_order_form(self):
+        self.authenticate('http_portal_a@example.com', 'demo12345')
+        response = self.url_open('/my')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Place Order / Request a Quote', response.content)
+        self.assertIn(b'href="/my/orders/new"', response.content)
+
+    def test_order_tile_does_not_depend_on_the_production_report_tile(self):
+        # The tile used to live inside the Production Report template, so
+        # switching that one off in Customize also hid the way to order.
+        report_view = self.env.ref(
+            'furnishing_mes.portal_my_home_production_report')
+        report_view.active = False
+        self.authenticate('http_portal_a@example.com', 'demo12345')
+        response = self.url_open('/my')
+        self.assertNotIn(b'href="/my/production-report"', response.content)
+        self.assertIn(b'href="/my/orders/new"', response.content)
+
+    def test_orders_list_has_a_place_order_button(self):
+        self.authenticate('http_portal_a@example.com', 'demo12345')
+        response = self.url_open('/my/orders')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'href="/my/orders/new"', response.content)
+
     def _csrf_token(self, url):
         response = self.url_open(url)
         match = re.search(rb'name="csrf_token" value="([^"]+)"', response.content)
