@@ -42,6 +42,9 @@ class ReportCase(FmesTestCase):
         cls.env['fmes.production.plan.line'].search(
             [('source', '=', 'carry_forward')]).unlink()
         cls.env['maintenance.request'].search([]).unlink()
+        # Real alerts raised by live activity (e.g. a new order) sit in the
+        # same window as the fixture alert below.
+        cls.env['fmes.alert'].search([]).unlink()
 
         # ---------------------------------------------------- production
         cls.entry = cls.env['fmes.production.entry'].create({

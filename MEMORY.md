@@ -2708,6 +2708,24 @@ fixtures now clear competing rows inside the test transaction (rolled back).
 Do NOT run the seed script and then the test suite against the same database.
 A pre-cleanup `pg_dump` is in `~/backups/`.
 
+**Follow-up (2026-11-12)**
+- `/fmes/terminal/exit` now requires the Operator group (supervisor and manager
+  imply it); a portal customer gets an `AccessError`, like the other routes.
+- The "Place Order / Request a Quote" tile has its own template
+  (`portal_my_home_order_new`), no longer nested in the Production Report one,
+  and `/my/orders` has a button to `/my/orders/new`.
+- Dev DB only, not in the repo: "Can be Sold" was cleared on seven raw-material
+  products (Bolt, Screw, Ply Layer, Ply Veneer, Wear Layer, Table Leg, Drawer
+  Case Black). A fresh DB still lists them; the order form filters on `sale_ok`.
+  Quotation S00152 on the dev DB is the portal test quote.
+- `TestReportsRenderWithoutError` now also clears `fmes.alert` rows inside its
+  test transaction: real alerts from live activity (a portal quote raises
+  `new_order_received`) fell in the report window and broke the exact count.
+- Known flake: `TestTerminalPinGate.test_the_user_pin_is_a_passthrough_of_the_employee_pin`
+  can fail in `setUp` on a slow full run. A leftover `/web/health` request from
+  the previous HttpCase test hits a read-only cursor. It passes when the class
+  runs alone; it is a harness race, not product code.
+
 **Not built (noted for later)**
 - The plan allocator still fills machines in fixed order rather than balancing
   them. If planners want balanced loads, that is an allocator change with its
