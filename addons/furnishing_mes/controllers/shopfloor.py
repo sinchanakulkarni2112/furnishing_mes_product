@@ -562,7 +562,13 @@ class FmesShopFloor(http.Controller):
         is untouched, so the user lands on the main screen still signed in.
         `fmes_pin_failures` is deliberately kept: exiting and re-entering
         must not be a way to reset the five-attempt lockout.
+
+        Like every other terminal route this is for shop-floor users only. The
+        operator group is implied by supervisor and manager, so it covers all
+        three tiers; a portal customer holds none of them.
         """
+        if not request.env.user.has_group('furnishing_mes.group_fmes_operator'):
+            raise AccessError(_("The shop-floor terminal is for staff only."))
         request.session.pop('fmes_active_employee_id', None)
         request.session.pop('fmes_active_user_id', None)
         return {'ok': True}

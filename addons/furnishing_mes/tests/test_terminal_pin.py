@@ -12,10 +12,12 @@ because that is where a shared-tablet bug would actually live.
 """
 
 from odoo.exceptions import AccessError, ValidationError
-from odoo.tests.common import HttpCase, tagged
+from odoo.tests.common import HttpCase, JsonRpcException, tagged
 
 ROUTE = '/fmes/terminal/pin_verify'
 MACHINES_ROUTE = '/fmes/terminal/machines'
+STATUS_ROUTE = '/fmes/terminal/pin_status'
+EXIT_ROUTE = '/fmes/terminal/exit'
 
 # Every response — ok or not — carries this key set. Success adds the
 # switched operator's employee_id / employee_name / user_id on top.
@@ -272,6 +274,38 @@ class TestTerminalPinGate(HttpCase):
             self.verify('0000')
         self.authenticate('fmes_pin_terminal_op', 'fmes_pin_terminal_op')
         self.assertTrue(self.verify('4417')['ok'])
+
+    # ------------------------------------------------------------------
+    # leaving the terminal
+    # ------------------------------------------------------------------
+    def test_exit_forgets_the_switched_operator_but_keeps_the_login(self):
+        self.assertTrue(self.verify('9134')['ok'])
+        status = self.make_jsonrpc_request(STATUS_ROUTE, {})
+        self.assertEqual(status['employee_id'], self.colleague.id)
+        self.assertTrue(self.make_jsonrpc_request(EXIT_ROUTE, {})['ok'])
+        status = self.make_jsonrpc_request(STATUS_ROUTE, {})
+        self.assertFalse(status['active'])
+        # Still signed in: an authenticated route keeps answering.
+        self.assertIn('machines', self.machines())
+
+    def test_exit_does_not_reset_the_pin_lockout(self):
+        for _ in range(3):
+            self.verify('0000')
+        self.make_jsonrpc_request(EXIT_ROUTE, {})
+        # Three failures before exiting, so the next one is the fourth.
+        self.assertEqual(self.verify('0000')['remaining_attempts'], 1)
+
+    def test_exit_is_refused_for_a_portal_customer(self):
+        self.env['res.users'].create({
+            'name': 'Portal Exit Customer',
+            'login': 'fmes_portal_exit_customer',
+            'password': 'fmes_portal_exit_customer',
+            'groups_id': [(6, 0, [self.env.ref('base.group_portal').id])],
+        })
+        self.authenticate(
+            'fmes_portal_exit_customer', 'fmes_portal_exit_customer')
+        with self.assertRaises(JsonRpcException):
+            self.make_jsonrpc_request(EXIT_ROUTE, {})
 
     # ------------------------------------------------------------------
     # authentication is still required
